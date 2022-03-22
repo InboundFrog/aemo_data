@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+PROJECT_ROOT=$(cd "$(dirname "$BASH_SOURCE")/.."; pwd)
+SCRIPT_ROOT="${PROJECT_ROOT}/bin"
+DATA_DIR="${PROJECT_ROOT}/data"
+
+AEMO_ROOT_URL="https://data.wa.aemo.com.au"
+AEMO_DATASETS="${AEMO_ROOT_URL}/datasets/dataset-list.yaml?_=$(date +%s000)"
+
+# Download that fudger 
+DATA_ROOT="${DATA_DIR}/$(date +"%Y-%m-%d")"
+
+function download_yaml {
+    DL_DIR="$1"
+    DL_URL="$2"
+    DL_NAME="$3"
+    DL_STEM="$4"
+
+    mkdir -p "${DL_DIR}"
+    echo "[${DL_NAME}] Fetching ${DL_STEM}.yml ..."
+    curl -s# -o - "${DL_URL}" | tr -d '\t' > "${DL_DIR}/${DL_STEM}.yml"
+    echo "[${DL_NAME}] Transforming to JSON..."
+    yq -o=json '.' "${DL_DIR}/${DL_STEM}.yml" > "${DL_DIR}/${DL_STEM}.json"
+}
+
+download_yaml "${DATA_ROOT}" "${AEMO_DATASETS}" "AEMO Datasets" "datasets"
+
+jq -cM '.datasets[]' "${DATA_ROOT}/datasets.json" | while read item; do
+    ITEM_NAME=$(jq -r '.name' <<< "${item}")
+    ITEM_DATASET=$(jq -r '.dataset' <<< "${item}")
+    ITEM_MANIFEST=$(jq -r '.manifestUrl' <<< "${item}")
+    ITEM_DEFINITIONS=$(jq -r '.definitionUrl' <<< "${item}")
+
+    ITEM_DATA_ROOT="${DATA_ROOT}/${ITEM_DATASET}"
+    download_yaml "${ITEM_DATA_ROOT}" "${AEMO_ROOT_URL}${ITEM_MANIFEST}" "${ITEM_NAME}" "manifest"
+    download_yaml "${ITEM_DATA_ROOT}" "${AEMO_ROOT_URL}${ITEM_DEFINITIONS}" "${ITEM_NAME}" "definitions"
+
+    mkdir -p "${ITEM_DATA_ROOT}/data"
+    jq -r '.[] | .url' "${ITEM_DATA_ROOT}/manifest.json" | while read dataUrl; do
+        DATA_FILE=$(basename "${dataUrl}")
+        echo "[${ITEM_NAME}] Downloading manifest item: ${dataUrl} ..."
+        curl -s# -o "${ITEM_DATA_ROOT}/data/${DATA_FILE}" "${dataUrl}"
+    done
+done
