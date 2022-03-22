@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 PROJECT_ROOT=$(cd "$(dirname "$BASH_SOURCE")/.."; pwd)
 SCRIPT_ROOT="${PROJECT_ROOT}/bin"
 DATA_DIR="${PROJECT_ROOT}/data"
-ARCHIVE_DIR="${PROJECT_DIR}/archive"
+ARCHIVE_DIR="${PROJECT_ROOT}/archive"
 
 AEMO_ROOT_URL="https://data.wa.aemo.com.au"
 AEMO_DATASETS="${AEMO_ROOT_URL}/datasets/dataset-list.yaml?_=$(date +%s000)"
 
 # Download that fudger 
 
+touch "${DATA_DIR}/.marker"
 function download_yaml {
     DL_DIR="$1"
     DL_URL="$2"
@@ -44,6 +47,13 @@ jq -cM '.datasets[]' "${DATA_DIR}/datasets.json" | while read item; do
 done
 
 # Archive that shit
-tar jcvf --newer-mtime "$(date -r $(($(date +%s) - 600)) "+%Y:%m:%d %H:%M:%S")"\
-        "${ARCHIVE_DIR}/$(date "+%Y%m%d-%H%M%S").tar.bz2" \
-        "${DATA_DIR}/*"
+ARCHIVE_TS=$(date "+%Y%m%d-%H%M%S")
+ARCHIVE_FILE="${ARCHIVE_DIR}/${ARCHIVE_TS}.tar.bz2"
+
+echo "Creating archive file ${ARCHIVE_FILE} ..."
+$(
+    cd "${DATA_DIR}";
+    tar -cjf "${ARCHIVE_FILE}" \
+        --newer-mtime-than="${DATA_DIR}/.marker" \
+        .
+)
