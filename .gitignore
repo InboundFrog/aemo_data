@@ -1,3 +1,8 @@
 archive/
 data/
 nohup.out
+
+
+# Added by cargo
+
+/target
