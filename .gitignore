@@ -6,3 +6,7 @@ nohup.out
 # Added by cargo
 
 /target
+
+# IntelliJ
+.idea/
+*.iml
