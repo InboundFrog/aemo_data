@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-PROJECT_ROOT=$(cd "$(dirname "$BASH_SOURCE")/.."; pwd)
-SCRIPT_ROOT="${PROJECT_ROOT}/bin"
+PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)
 DATA_DIR="${PROJECT_ROOT}/data"
 ARCHIVE_DIR="${PROJECT_ROOT}/archive"
 
@@ -28,7 +27,7 @@ function download_yaml {
 
 download_yaml "${DATA_DIR}" "${AEMO_DATASETS}" "AEMO Datasets" "datasets"
 
-jq -cM '.datasets[]' "${DATA_DIR}/datasets.json" | while read item; do
+jq -cM '.datasets[]' "${DATA_DIR}/datasets.json" | while read -r item; do
     ITEM_NAME=$(jq -r '.name' <<< "${item}")
     ITEM_DATASET=$(jq -r '.dataset' <<< "${item}")
     ITEM_MANIFEST=$(jq -r '.manifestUrl' <<< "${item}")
@@ -39,7 +38,7 @@ jq -cM '.datasets[]' "${DATA_DIR}/datasets.json" | while read item; do
     download_yaml "${ITEM_DATA_DIR}" "${AEMO_ROOT_URL}${ITEM_DEFINITIONS}" "${ITEM_NAME}" "definitions"
 
     mkdir -p "${ITEM_DATA_DIR}/data"
-    jq -r '.[] | .url' "${ITEM_DATA_DIR}/manifest.json" | while read dataUrl; do
+    jq -r '.[] | .url' "${ITEM_DATA_DIR}/manifest.json" | while read -r dataUrl; do
         DATA_FILE=$(basename "${dataUrl}")
         echo "[${ITEM_NAME}] Downloading manifest item: ${dataUrl} ..."
         curl -s# -o "${ITEM_DATA_DIR}/data/${DATA_FILE}" -z "${ITEM_DATA_DIR}/data/${DATA_FILE}" "${dataUrl}"
@@ -51,7 +50,7 @@ ARCHIVE_TS=$(date "+%Y%m%d-%H%M%S")
 ARCHIVE_FILE="${ARCHIVE_DIR}/${ARCHIVE_TS}.tar.bz2"
 
 echo "Creating archive file ${ARCHIVE_FILE} ..."
-$(
+(
     cd "${DATA_DIR}";
     tar -cjf "${ARCHIVE_FILE}" \
         --newer-mtime-than="${DATA_DIR}/.marker" \
